@@ -1,0 +1,15 @@
+{
+  "name": "frontend-auth-demo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "react": "18.x",
+    "react-dom": "18.x",
+    "next": "14.x"
+  }
+}
