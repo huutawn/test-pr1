@@ -18,7 +18,7 @@ import (
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
-
+//
 type App struct {
 	db        *sql.DB
 	jwtSecret string
