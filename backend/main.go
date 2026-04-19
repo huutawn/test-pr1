@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -13,16 +14,19 @@ import (
 	"os"
 	"strings"
 	"time"
-//
+
+	//
 	"github.com/golang-jwt/jwt/v4"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
-//
+
 type App struct {
 	db        *sql.DB
 	jwtSecret string
 }
+
+//
 
 var app App
 
@@ -54,6 +58,8 @@ type tokenResponse struct {
 }
 
 func main() {
+	loadDotEnvFile(".env")
+
 	port := getEnv("PORT", "8080")
 	secret := getEnv("JWT_SECRET", "default-secret-please-change")
 	// Connect to PostgreSQL via DSN from environment
@@ -62,12 +68,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to open db: %v", err)
 	}
+	if err := waitForDatabase(db, 60*time.Second); err != nil {
+		log.Fatalf("failed to connect db: %v", err)
+	}
 	if err := migrate(db); err != nil {
 		log.Fatalf("failed to migrate db: %v", err)
 	}
 
 	app = App{db: db, jwtSecret: secret}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", rootHandler)
+	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/auth/register", registerHandler)
 	mux.HandleFunc("/auth/login", loginHandler)
 	mux.HandleFunc("/auth/refresh", refreshHandler)
@@ -109,6 +120,50 @@ func migrate(db *sql.DB) error {
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`)
 	return err
+}
+
+func waitForDatabase(db *sql.DB, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	backoff := 500 * time.Millisecond
+	var lastErr error
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		err := db.PingContext(ctx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		time.Sleep(backoff)
+		if backoff < 5*time.Second {
+			backoff *= 2
+		}
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("database is not reachable")
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"service": "auth-demo",
+		"status":  "ok",
+	})
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +264,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// fetch email for token claims
 	var email string
-	_ = app.db.QueryRow("SELECT email FROM users WHERE id=?", userID).Scan(&email)
+	_ = app.db.QueryRow("SELECT email FROM users WHERE id=$1", userID).Scan(&email)
 	newToken, err := generateJWT(userID, email, 15*time.Minute, app.jwtSecret)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -230,7 +285,7 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := uid.(int64)
 	var email string
-	row := app.db.QueryRow("SELECT email FROM users WHERE id=?", userID)
+	row := app.db.QueryRow("SELECT email FROM users WHERE id=$1", userID)
 	if err := row.Scan(&email); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -306,14 +361,50 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func postgresDSN() string {
-	host := getEnv("PG_HOST", "localhost")
-	port := getEnv("PG_PORT", "5432")
-	user := getEnv("PG_USER", "postgres")
-	pass := getEnv("PG_PASSWORD", "")
-	dbname := getEnv("PG_DB", "auth_demo")
-	sslmode := getEnv("PG_SSLMODE", "disable")
+	if dsn := strings.TrimSpace(getEnv("DB_URL", "")); dsn != "" {
+		return dsn
+	}
+	host := getEnv("DB_HOST", "localhost")
+	port := getEnv("DB_PORT", "5432")
+	user := getEnv("DB_USERNAME", "postgres")
+	pass := getEnv("DB_PASSWORD", "")
+	dbname := getEnv("DB_NAME", "app")
+	sslmode := getEnv("DB_SSLMODE", "disable")
 	if pass != "" {
 		return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", url.QueryEscape(user), url.QueryEscape(pass), host, port, dbname, sslmode)
 	}
 	return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=%s", url.QueryEscape(user), host, port, dbname, sslmode)
+}
+
+func loadDotEnvFile(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		value = strings.Trim(value, `"'`)
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		if err := os.Setenv(key, value); err != nil {
+			log.Printf("skip .env key %s: %v", key, err)
+		}
+	}
 }
