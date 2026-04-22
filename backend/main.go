@@ -60,7 +60,7 @@ type tokenResponse struct {
 func main() {
 	loadDotEnvFile(".env")
 
-	port := getEnv("PORT", "8080")
+	port := "8080"
 	secret := getEnv("JWT_SECRET", "default-secret-please-change")
 	// Connect to PostgreSQL via DSN from environment
 	dsn := postgresDSN()
@@ -84,7 +84,7 @@ func main() {
 	mux.HandleFunc("/auth/refresh", refreshHandler)
 	mux.Handle("/me", authMiddleware(http.HandlerFunc(meHandler)))
 
-	// Basic CORS for local testing; tighten for prod
+	// Allow a configured browser origin when one is provided; same-origin ingress works without it.
 	handler := corsMiddleware(mux)
 
 	log.Printf("backend listening on :%s", port)
@@ -349,7 +349,9 @@ func generateRandomToken(length int) (string, error) {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if origin := strings.TrimSpace(getEnv("CORS_ALLOW_ORIGIN", "")); origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
@@ -361,10 +363,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func postgresDSN() string {
-	if dsn := strings.TrimSpace(getEnv("DB_URL", "")); dsn != "" {
+	if dsn := strings.TrimSpace(getEnv("DATABASE_URL", getEnv("DB_URL", ""))); dsn != "" {
 		return dsn
 	}
-	host := getEnv("DB_HOST", "localhost")
+	host := getEnv("DB_HOST", "db")
 	port := getEnv("DB_PORT", "5432")
 	user := getEnv("DB_USERNAME", "postgres")
 	pass := getEnv("DB_PASSWORD", "")

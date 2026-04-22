@@ -1,7 +1,7 @@
 # Production-ready Auth Demo (Go backend + Next.js frontend)
 
 Project structure:
-- backend/  (Go, Gin-less microservice with SQLite)
+- backend/  (Go microservice with PostgreSQL)
 - fe/       (Next.js frontend)
 
 Features:
@@ -10,25 +10,36 @@ Features:
 - Landing page + auth pages (login/register)
 
 How to run:
-- Prerequisites: Go 1.20+, Node.js (LTS), npm/yarn
+- Prerequisites: Go 1.20+, PostgreSQL, Node.js (LTS), npm/yarn
 
 1) Start backend
 - cd backend
 - go mod tidy
 - go run .
-- Backend listens on port from PORT env (default 8080)
-- Uses SQLite DB at DB_PATH (default db.sqlite) in project root
-- Environment vars (examples):
+- Backend always listens on port 8080
+- Environment vars for local dev (examples):
   - JWT_SECRET=supersecret
-  - DB_PATH=db.sqlite
+  - DATABASE_URL=postgres://postgres:postgres@localhost:5432/app?sslmode=disable
+  - DB_URL=postgres://postgres:postgres@localhost:5432/app?sslmode=disable
+  - DB_HOST=localhost
+  - DB_PORT=5432
+  - DB_NAME=app
+  - DB_USERNAME=postgres
+  - DB_PASSWORD=postgres
 
 2) Start frontend
 - cd fe
 - npm install
-- NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 npm run dev
+- NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
 - Frontend uses http://localhost:3000
-- You can set the backend URL by exporting NEXT_PUBLIC_BACKEND_URL
+- You can set the browser API base by exporting NEXT_PUBLIC_API_BASE_URL
 
 Usage:
 - Visit http://localhost:3000 to see the landing page.
 - Use /login and /register to authenticate. The frontend stores the JWT in localStorage for simplicity; for production, consider HttpOnly cookies and a proper session mechanism.
+
+LazyOps distributed-k3s notes:
+- Browser-side calls should use the backend public path, not internal DNS. Set `NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}` and let it resolve to `/api`.
+- Backend-to-database access should use managed placeholders. Prefer `DATABASE_URL=${DB_URL}` or `DB_URL=${DB_URL}`.
+- If the backend later needs to call another internal service, use cluster-safe URLs such as `http://be:8080`, never `localhost`.
+- Do not expose the managed PostgreSQL service publicly.

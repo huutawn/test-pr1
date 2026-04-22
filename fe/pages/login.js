@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const backend = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080')
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -11,7 +11,7 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     try {
-      const res = await fetch(`${backend}/auth/login`, {
+      const res = await fetch(`${apiBaseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
