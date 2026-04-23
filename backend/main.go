@@ -78,11 +78,11 @@ func main() {
 	app = App{db: db, jwtSecret: secret}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rootHandler)
-	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/auth/register", registerHandler)
-	mux.HandleFunc("/auth/login", loginHandler)
-	mux.HandleFunc("/auth/refresh", refreshHandler)
-	mux.Handle("/me", authMiddleware(http.HandlerFunc(meHandler)))
+	mux.HandleFunc("/api/health", healthHandler)
+	mux.HandleFunc("/api/auth/register", registerHandler)
+	mux.HandleFunc("/api/auth/login", loginHandler)
+	mux.HandleFunc("/api/auth/refresh", refreshHandler)
+	mux.Handle("/api/me", authMiddleware(http.HandlerFunc(meHandler)))
 
 	// Allow a configured browser origin when one is provided; same-origin ingress works without it.
 	handler := corsMiddleware(mux)

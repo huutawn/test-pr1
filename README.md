@@ -6,7 +6,7 @@ Project structure:
 
 Features:
 - JWT-based authentication with access and refresh tokens
-- Registration, login, token refresh, and a protected /me endpoint
+- Registration, login, token refresh, and a protected /api/me endpoint
 - Landing page + auth pages (login/register)
 
 How to run:
@@ -30,7 +30,7 @@ How to run:
 2) Start frontend
 - cd fe
 - npm install
-- NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
+- NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api npm run dev
 - Frontend uses http://localhost:3000
 - You can set the browser API base by exporting NEXT_PUBLIC_API_BASE_URL
 
