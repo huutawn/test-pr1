@@ -19,13 +19,13 @@ How to run:
 - Backend always listens on port 8080
 - Environment vars for local dev (examples):
   - JWT_SECRET=supersecret
-  - DATABASE_URL=postgres://postgres:postgres@localhost:5432/app?sslmode=disable
-  - DB_URL=postgres://postgres:postgres@localhost:5432/app?sslmode=disable
-  - DB_HOST=localhost
-  - DB_PORT=5432
-  - DB_NAME=app
-  - DB_USERNAME=postgres
-  - DB_PASSWORD=postgres
+  - DATABASE_URL=postgres://postgres:postgres:5432/app?sslmode=disable
+  - POSTGRES_URL=postgres://postgres:postgres:5432/app?sslmode=disable
+  - POSTGRES_HOST=postgres
+  - POSTGRES_PORT=5432
+  - POSTGRES_DB=app
+  - POSTGRES_USER=postgres
+  - POSTGRES_PASSWORD=postgres
 
 2) Start frontend
 - cd fe
@@ -40,6 +40,6 @@ Usage:
 
 LazyOps distributed-k3s notes:
 - Browser-side calls should use the backend public path, not internal DNS. Set `NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}` and let it resolve to `/api`.
-- Backend-to-database access should use managed placeholders. Prefer `DATABASE_URL=${DB_URL}` or `DB_URL=${DB_URL}`.
+- Backend-to-database access should use managed placeholders. Prefer `DATABASE_URL=` or build it from `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
 - If the backend later needs to call another internal service, use cluster-safe URLs such as `http://be:8080`, never `localhost`.
 - Do not expose the managed PostgreSQL service publicly.

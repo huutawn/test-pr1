@@ -363,19 +363,28 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func postgresDSN() string {
-	if dsn := strings.TrimSpace(getEnv("DATABASE_URL", getEnv("DB_URL", ""))); dsn != "" {
+	if dsn := strings.TrimSpace(getEnv("DATABASE_URL", getEnv("POSTGRES_URL", ""))); dsn != "" {
 		return dsn
 	}
-	host := getEnv("DB_HOST", "db")
-	port := getEnv("DB_PORT", "5432")
-	user := getEnv("DB_USERNAME", "postgres")
-	pass := getEnv("DB_PASSWORD", "")
-	dbname := getEnv("DB_NAME", "app")
-	sslmode := getEnv("DB_SSLMODE", "disable")
+	host := getEnvAny([]string{"POSTGRES_HOST", "DB_HOST"}, "postgres")
+	port := getEnvAny([]string{"POSTGRES_PORT", "DB_PORT"}, "5432")
+	user := getEnvAny([]string{"POSTGRES_USER", "DB_USERNAME"}, "postgres")
+	pass := getEnvAny([]string{"POSTGRES_PASSWORD", "DB_PASSWORD"}, "")
+	dbname := getEnvAny([]string{"POSTGRES_DB", "DB_NAME"}, "app")
+	sslmode := getEnvAny([]string{"POSTGRES_SSLMODE", "DB_SSLMODE"}, "disable")
 	if pass != "" {
 		return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", url.QueryEscape(user), url.QueryEscape(pass), host, port, dbname, sslmode)
 	}
 	return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=%s", url.QueryEscape(user), host, port, dbname, sslmode)
+}
+
+func getEnvAny(keys []string, def string) string {
+	for _, key := range keys {
+		if value, ok := os.LookupEnv(key); ok && strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return def
 }
 
 func loadDotEnvFile(path string) {
